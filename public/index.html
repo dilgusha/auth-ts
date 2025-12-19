@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Todo App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        input {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        p {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        #registerMsg {
+            color: green;
+        }
+
+        #loginMsg {
+            color: green;
+        }
+
+        #todoMsg {
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Todo App</h1>
+
+    <!-- Register Form -->
+    <h2>Register</h2>
+    <form id="registerForm">
+        <input type="text" id="regName" placeholder="Name" required>
+        <input type="email" id="regEmail" placeholder="Email" required>
+        <input type="password" id="regPassword" placeholder="Password" required>
+        <button type="submit">Register</button>
+    </form>
+    <p id="registerMsg"></p>
+
+    <!-- Login Form -->
+    <h2>Login</h2>
+    <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+    <p id="loginMsg"></p>
+
+    <!-- Create Todo -->
+    <h2>Create Todo</h2>
+    <form id="todoForm">
+        <input type="text" id="todoTitle" placeholder="Todo title" required>
+        <button type="submit">Create Todo</button>
+    </form>
+    <p id="todoMsg"></p>
+
+    <script>
+        const API = "http://localhost:4000/api";
+
+        // Register
+        document.getElementById("registerForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("regName").value;
+            const email = document.getElementById("regEmail").value;
+            const password = document.getElementById("regPassword").value;
+
+            try {
+                const res = await fetch(`${API}/auth/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email, password }),
+                    credentials: "include" // cookie auth üçün
+                });
+                const data = await res.json();
+                document.getElementById("registerMsg").innerText = data.message || "Registered!";
+            } catch (err) {
+                document.getElementById("registerMsg").innerText = "Error: " + err.message;
+            }
+        });
+
+        // Login
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            try {
+                const res = await fetch(`${API}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password }),
+                    credentials: "include"
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                // Browser localStorage-də access token-i saxla
+                localStorage.setItem("accessToken", data.accessToken);
+                alert("Login successful!");
+            } catch (err) {
+                document.getElementById("loginMsg").innerText = "Error: " + err.message;
+            }
+        });
+
+        const token = localStorage.getItem("accessToken"); // login zamanı saxlanmış token
+
+        document.getElementById("todoForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const title = document.getElementById("todoTitle").value;
+
+            // token-i burada oxu, login sonrası localStorage-də olacaq
+            const token = localStorage.getItem("accessToken");
+
+            try {
+                const res = await fetch(`${API}/todo`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({ title })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message);
+                }
+
+                const data = await res.json();
+                document.getElementById("todoMsg").innerText = "Todo created: " + data.title;
+
+            } catch (err) {
+                document.getElementById("todoMsg").innerText = "Error: " + err.message;
+            }
+        });
+
+    </script>
+</body>
+
+</html>

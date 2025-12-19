@@ -20,22 +20,39 @@ export async function register(req: Request, res: Response) {
   }
 }
 
+
+export async function createUser(req: Request, res: Response) {
+  try {
+    const result = await authService.createUser(req.body);
+
+    // res.status(201).json(result);
+    res.status(201).json({ user: result.user, accessToken: result.accessToken });
+
+  } catch (err: any) {
+    res.status(400).json({ message: err.message || "Registration failed" });
+  }
+}
+
 export async function login(req: Request, res: Response) {
   try {
     const result = await authService.login(req.body);
+
     res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+    // localStorage.setItem("accessToken", data.accessToken);
 
-    res.json({ user: result.user, accessToken: result.accessToken });
-    res.json(result);
+
+    return res.json({ user: result.user, accessToken: result.accessToken });
+
   } catch (err: any) {
-    res.status(400).json({ message: err.message || "Login failed" });
+    return res.status(400).json({ message: err.message || "Login failed" });
   }
 }
+
 
 // export async function refreshToken(req: Request, res: Response) {
 //   try {
@@ -56,7 +73,7 @@ export async function login(req: Request, res: Response) {
 
 export async function refreshToken(req: Request, res: Response) {
   try {
-    const token = req.cookies.refreshToken; 
+    const token = req.cookies.refreshToken;
 
     if (!token) {
       return res.status(400).json({ message: "Refresh token is required" });

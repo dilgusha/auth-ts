@@ -7,14 +7,20 @@ dotenv.config();
 
 const jwtCode = process.env.JWT_SECRET as string;
 
+export enum Role {
+  USER = "user",
+  ADMIN = "admin"
+}
+
 export interface JwtPayload {
   id: string;
   email: string;
-  type?: string;
+  type?: 'access' | 'refresh';
+  role: Role
 }
 
 export const generateAccessToken = (payload: JwtPayload): string => {
-  return jwt.sign(payload, jwtCode, { expiresIn: "1d" });
+  return jwt.sign({ ...payload, type: "access" }, jwtCode, { expiresIn: "1d" });
 };
 
 export const generateRefreshToken = (): string => {
@@ -26,7 +32,7 @@ export const verifyToken = (token: string): JwtPayload => {
 };
 
 export const saveRefreshToken = async (userId: string, token: string) => {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); 
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await query(
     "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)",
     [userId, token, expiresAt]
