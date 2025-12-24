@@ -43,7 +43,6 @@ export async function login(req: Request, res: Response) {
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    // localStorage.setItem("accessToken", data.accessToken);
 
 
     return res.json({ user: result.user, accessToken: result.accessToken });
@@ -97,6 +96,28 @@ export async function logout(req: Request, res: Response) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     });
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+}
+
+
+
+export async function sendVerifyCode(req: Request, res: Response) {
+  try {
+    const { email } = req.body;
+    const result = await authService.sendVerifyCode(email);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+  
+}
+export async function verifyEmail(req: Request, res: Response) {
+  try {
+    const { email, code } = req.body;
+    const result = await authService.verifyEmail(email, code);
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ message: err.message });

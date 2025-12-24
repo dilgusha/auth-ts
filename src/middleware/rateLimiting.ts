@@ -5,7 +5,7 @@ interface RateLimitOptions {
     maxRequests: number;
 }
 
-export const rateLimiter = ({ seconds, maxRequests, }: RateLimitOptions) => {
+export const rateLimiter = ({ seconds, maxRequests }: RateLimitOptions) => {
     return rateLimit({
         windowMs: seconds * 1000,// mls-sn
         max: maxRequests,

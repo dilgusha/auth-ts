@@ -2,6 +2,8 @@ import { RegisterDto, LoginDto, CreateUserDto } from "../types/auth";
 import { hashPassword, comparePassword } from "../utils/hash";
 import { generateAccessToken, generateRefreshToken, Role, saveRefreshToken, verifyRefreshToken } from "../utils/jwt";
 import { query } from "../config/connection";
+import { generateOTP } from "../utils/otp";
+import { sendVerificationEmail, sendWelcomeEmail } from "../utils/mailer";
 
 export class AuthService {
   async register(data: RegisterDto) {
@@ -9,12 +11,17 @@ export class AuthService {
     if (existing.rows.length > 0) throw new Error("Email already registered");
 
     const hashed = await hashPassword(data.password);
+
     const result = await query(
-      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *",
+      `INSERT INTO users 
+     (name, email, password)
+     VALUES ($1, $2, $3)
+     RETURNING id, email, name`,
       [data.name, data.email, hashed]
     );
 
     const created = result.rows[0];
+    await sendWelcomeEmail(created.email, created.name);
     const accessToken = generateAccessToken({ id: String(created.id), email: created.email, role: Role.USER });
     const refreshToken = generateRefreshToken();
 
@@ -23,6 +30,75 @@ export class AuthService {
     const { password, ...userNoPass } = created;
     return { user: userNoPass, accessToken, refreshToken };
   }
+
+  async sendVerifyCode(email: string) {
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = result.rows[0];
+
+    if (!user) throw new Error("User not found");
+    if (user.is_verified) {
+      throw new Error("Email already verified");
+    }
+
+    const code = generateOTP();
+    const expires = new Date(Date.now() + 5 * 60 * 1000);  // 5 deq 
+
+    await query(
+      "UPDATE users SET email_verification_code = $1, email_verification_expires = $2 WHERE email = $3",
+      [code, expires, email]
+    );
+
+    await sendVerificationEmail(email, code);
+
+    return { message: "Verification code sent" };
+  }
+
+
+  async verifyEmail(email: string, code: string) {
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    if (result.rows.length === 0) throw new Error("User not found");
+
+    const user = result.rows[0];
+
+    if (user.is_verified) {
+      throw new Error("Email already verified");
+    }
+
+    if (!user.email_verification_code) {
+      throw new Error("Verification code not found");
+    }
+
+    if (user.email_verification_code !== code) {
+      throw new Error("Invalid verification code");
+    }
+
+    if (user.email_verification_expires < new Date()) {
+      throw new Error("Verification code expired");
+    }
+
+
+    // const result = await query(  //sorgularin hamisi duz olmalidir where, and,and
+    //   `SELECT 1 FROM users
+    //  WHERE email = $1
+    //    AND email_verification_code = $2
+    //    AND email_verification_expires > NOW()`,
+    //   [email, code]
+    // );
+
+    // if (!result.rows[0]) throw new Error("Invalid or expired code");
+
+    await query(
+      `UPDATE users
+     SET is_verified = true,
+         email_verification_code = NULL,
+         email_verification_expires = NULL
+     WHERE email = $1`,
+      [email]
+    );
+
+    return { message: "Email verified successfully" };
+  }
+
 
   async login(data: LoginDto) {
     const result = await query("SELECT * FROM users WHERE email = $1", [data.email]);
@@ -107,5 +183,8 @@ export class AuthService {
 
 
   }
+
+
+
 
 }
