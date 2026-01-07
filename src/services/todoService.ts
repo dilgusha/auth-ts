@@ -9,13 +9,52 @@ export class TodoService {
     return result.rows[0];
   }
 
-  async getAll(userId: string) {
-    const result = await query(
-      "SELECT * FROM todos WHERE user_id = $1 ORDER BY id DESC",
+  // async getAll(userId: string) {
+  //   const result = await query(
+  //     "SELECT * FROM todos WHERE user_id = $1 ORDER BY id DESC",
+  //     [userId]
+  //   );
+  //   return result.rows;
+  // }
+
+
+  async getAll(
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const offset = (page - 1) * limit;
+
+    const todosResult = await query(
+      `SELECT *
+    FROM todos
+    WHERE user_id = $1
+    ORDER BY id DESC
+    LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+
+    const countResult = await query(
+      `SELECT COUNT(*) 
+    FROM todos 
+    WHERE user_id = $1`,
       [userId]
     );
-    return result.rows;
+
+    const total = Number(countResult.rows[0].count);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: todosResult.rows,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   }
+
 
   async getOne(userId: string, todoId: string) {
     const result = await query(

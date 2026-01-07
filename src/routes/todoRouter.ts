@@ -13,9 +13,9 @@ import { rateLimiter } from "../middleware/rateLimiting";
 
 const router = Router();
 
+router.get("/all-todos", authMiddleware,getTodos);
 router.post("/", authMiddleware, rateLimiter({ seconds: 60, maxRequests: 3 }), createTodo);
-router.get("/", getTodos);
-router.get("/:id", authMiddleware, getTodo);
+router.get("/:id/todo", authMiddleware, getTodo);
 router.put("/:id", authMiddleware, updateTodo);
 router.delete("/:id", authMiddleware, deleteTodo);
 

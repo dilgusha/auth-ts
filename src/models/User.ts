@@ -8,7 +8,7 @@ export class UserModel {
     return res.rows[0];
   }
 
-  async findById(id: number): Promise<User | null> {
+  async findById(id: number): Promise<User | null> { 
     const res = await query("SELECT id, email, name, created_at FROM users WHERE id = $1", [id]);
     if (!res.rows.length) return null;
     return res.rows[0];

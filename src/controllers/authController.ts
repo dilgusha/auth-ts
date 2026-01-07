@@ -1,19 +1,49 @@
 import { Request, Response } from "express";
 import { AuthService } from "../services/authService";
+import { AuthRequest } from "../middleware/auth";
 
 const authService = new AuthService();
 
+export async function getProfile(req: AuthRequest, res: Response) {
+  try {
+    const profile = await authService.getProfile(req.user!.id);
+    res.json(profile);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+
+}
+
+export async function changePass(req: AuthRequest, res: Response) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Old and new password are required" });
+    }
+
+    const result = await authService.changePass(
+      req.user!.id,
+      oldPassword,
+      newPassword
+    );
+
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+}
 export async function register(req: Request, res: Response) {
   try {
     const result = await authService.register(req.body);
-    res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    // res.cookie("refreshToken", result.refreshToken, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "strict",
+    //   maxAge: 7 * 24 * 60 * 60 * 1000,
+    // });
     // res.status(201).json(result);
-    res.status(201).json({ user: result.user, accessToken: result.accessToken });
+    res.status(201).json({ user: result.user });
 
   } catch (err: any) {
     res.status(400).json({ message: err.message || "Registration failed" });
@@ -49,6 +79,26 @@ export async function login(req: Request, res: Response) {
 
   } catch (err: any) {
     return res.status(400).json({ message: err.message || "Login failed" });
+  }
+}
+
+export async function forgotPass(req: Request, res: Response) {
+  try {
+    const { email } = req.body;
+    const result = await authService.forgotPass(email);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+}
+
+export async function resetPass(req: Request, res: Response) {
+  try {
+    const { email, code, newPassword } = req.body;
+    const result = await authService.resetPass(email, code, newPassword);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
   }
 }
 
@@ -104,16 +154,15 @@ export async function logout(req: Request, res: Response) {
 
 
 
-export async function sendVerifyCode(req: Request, res: Response) {
-  try {
-    const { email } = req.body;
-    const result = await authService.sendVerifyCode(email);
-    res.json(result);
-  } catch (err: any) {
-    res.status(400).json({ message: err.message });
-  }
-  
-}
+// export async function sendVerifyCode(req: Request, res: Response) {
+//   try {
+//     const { email } = req.body;
+//     const result = await authService.sendVerifyCode(email);
+//     res.json(result);
+//   } catch (err: any) {
+//     res.status(400).json({ message: err.message });
+//   }
+// }
 export async function verifyEmail(req: Request, res: Response) {
   try {
     const { email, code } = req.body;

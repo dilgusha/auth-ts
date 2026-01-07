@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { TodoService } from "../services/todoService";
+import { AuthRequest } from "../middleware/auth";
 
 const todoService = new TodoService();
 
@@ -13,10 +14,14 @@ export async function createTodo(req: any, res: Response) {
   }
 }
 
-export async function getTodos(req: any, res: Response) {
+export async function getTodos(req: AuthRequest, res: Response) {
   try {
-    const todos = await todoService.getAll(req.user.id);
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    const todos = await todoService.getAll(req.user!.id, page, limit);
     res.json(todos);
+
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }

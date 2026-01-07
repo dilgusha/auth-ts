@@ -3,54 +3,56 @@ import { hashPassword, comparePassword } from "../utils/hash";
 import { generateAccessToken, generateRefreshToken, Role, saveRefreshToken, verifyRefreshToken } from "../utils/jwt";
 import { query } from "../config/connection";
 import { generateOTP } from "../utils/otp";
-import { sendVerificationEmail, sendWelcomeEmail } from "../utils/mailer";
+import { sendOtpEmail, sendVerificationEmail, sendWelcomeEmail } from "../utils/mailer";
 
 export class AuthService {
+
+  async getProfile(userId: string) {
+    const result = await query(
+      `SELECT id, name, email, role, is_verified
+    FROM users
+    WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error("User not found");
+    }
+
+    return result.rows[0];
+  }
+
   async register(data: RegisterDto) {
     const existing = await query("SELECT * FROM users WHERE email = $1", [data.email]);
     if (existing.rows.length > 0) throw new Error("Email already registered");
 
     const hashed = await hashPassword(data.password);
 
+    const otp = generateOTP();
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
+
     const result = await query(
       `INSERT INTO users 
-     (name, email, password)
-     VALUES ($1, $2, $3)
+     (name, email, password,email_verification_code, email_verification_expires)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id, email, name`,
-      [data.name, data.email, hashed]
+      [data.name, data.email, hashed, otp, expires]
     );
 
     const created = result.rows[0];
-    await sendWelcomeEmail(created.email, created.name);
-    const accessToken = generateAccessToken({ id: String(created.id), email: created.email, role: Role.USER });
-    const refreshToken = generateRefreshToken();
+    await sendVerificationEmail(data.email, otp);
+    // const accessToken = generateAccessToken({ id: String(created.id), email: created.email, role: Role.USER });
+    // const refreshToken = generateRefreshToken();
 
-    await saveRefreshToken(String(created.id), refreshToken);
+    // await saveRefreshToken(String(created.id), refreshToken);
 
-    const { password, ...userNoPass } = created;
-    return { user: userNoPass, accessToken, refreshToken };
-  }
+    // const { password, ...userNoPass } = created;
+    // return { user: userNoPass, accessToken, refreshToken };
 
-  async sendVerifyCode(email: string) {
-    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
-    const user = result.rows[0];
-
-    if (!user) throw new Error("User not found");
-    if (user.is_verified) {
-      throw new Error("Email already verified");
-    }
-
-    const code = generateOTP();
-    const expires = new Date(Date.now() + 5 * 60 * 1000);  // 5 deq 
-
-    await query(
-      "UPDATE users SET email_verification_code = $1, email_verification_expires = $2 WHERE email = $3",
-      [code, expires, email]
-    );
-
-    await sendVerificationEmail(email, code);
-
-    return { message: "Verification code sent" };
+    return {
+      message: "Registration successful. Verification code sent to email.",
+      user: created,
+    };
   }
 
 
@@ -100,10 +102,15 @@ export class AuthService {
   }
 
 
+
   async login(data: LoginDto) {
     const result = await query("SELECT * FROM users WHERE email = $1", [data.email]);
     const user = result.rows[0];
     if (!user || !user.password) throw new Error("Invalid credentials");
+
+    if (!user.is_verified) {
+      throw new Error("Please verify your email first");
+    }
 
     const ok = await comparePassword(data.password, user.password);
     if (!ok) throw new Error("Invalid credentials");
@@ -113,10 +120,97 @@ export class AuthService {
 
     await saveRefreshToken(String(user.id), refreshToken);
 
-    const { password, ...userNoPass } = user;
+    const { password, email_verification_code, email_verification_expires, reset_password_code, reset_password_expires, role, ...userNoPass } = user;
     return { user: userNoPass, accessToken, refreshToken };
   }
 
+
+  async forgotPass(email: string) {
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = result.rows[0];
+    if (!user) throw new Error("User not found");
+
+    const otp = generateOTP();
+    const expires = new Date(Date.now() + 10 * 60 * 1000);  // 10 deq
+
+    await query(
+      "UPDATE users SET reset_password_code = $1, reset_password_expires = $2 WHERE email = $3",
+      [otp, expires, email]
+    );
+
+    await sendOtpEmail(email, otp);
+    return { message: "Password reset code sent to email" };
+  }
+
+  async resetPass(email: string, code: string, newPassword: string) {
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = result.rows[0];
+    if (!user) throw new Error("User not found");
+
+    if (!user.reset_password_code) {
+      throw new Error("Password reset code not found");
+    }
+    if (user.reset_password_code !== code) {
+      throw new Error("Invalid password reset code");
+    }
+    if (user.reset_password_expires < new Date()) {
+      throw new Error("Password reset code expired");
+    }
+    const hashed = await hashPassword(newPassword);
+
+    await query(
+      "UPDATE users SET password = $1,  reset_password_code = NULL, reset_password_expires = NULL WHERE email = $2",
+      [hashed, email]
+    );
+
+    return { message: "Password reset successful" };
+
+  }
+
+
+  async changePass(userId: string, oldPassword: string, newPassword: string) {
+    const result = await query("SELECT password FROM users WHERE id = $1", [userId]);
+    const user = result.rows[0];
+
+    if (!user || !user.password) throw new Error("User not found");
+
+    const ok = await comparePassword(oldPassword, user.password);
+    if (!ok) throw new Error("Old password is incorrect");
+
+    const same = await comparePassword(newPassword, user.password);
+    if (same) throw new Error("New password must be different from old password");
+
+    const hashed = await hashPassword(newPassword);
+
+    await query("UPDATE users SET password = $1 WHERE id = $2", [hashed, userId]);
+
+    await query("UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1", [userId]);
+
+    return { message: "Password changed successfully" };
+  }
+
+
+  // async sendVerifyCode(email: string) {
+  //   const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+  //   const user = result.rows[0];
+
+  //   if (!user) throw new Error("User not found");
+  //   if (user.is_verified) {
+  //     throw new Error("Email already verified");
+  //   }
+
+  //   const code = generateOTP();
+  //   const expires = new Date(Date.now() + 5 * 60 * 1000);  // 5 deq 
+
+  //   await query(
+  //     "UPDATE users SET email_verification_code = $1, email_verification_expires = $2 WHERE email = $3",
+  //     [code, expires, email]
+  //   );
+
+  //   await sendVerificationEmail(email, code);
+
+  //   return { message: "Verification code sent" };
+  // }
   async refreshToken(token: string) {
 
     if (!token) {

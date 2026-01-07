@@ -39,3 +39,20 @@ export const sendVerificationEmail = async (email: string, code: string) => {
         `
     });
 };
+
+
+export const sendOtpEmail = async (email: string, code: string) => {
+    await transporter.sendMail({
+        from: `"Todo App" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: "Password Reset Code",
+        html: `
+      <h2>Password Reset</h2>
+      <p>You requested to reset your password.</p>
+      <p>Use the verification code below:</p>
+      <h1>${code}</h1>
+      <p>This code expires in <b>5 minutes</b>.</p>
+      <p>If you did not request a password reset, please ignore this email.</p>
+    `,
+    });
+};
