@@ -40,6 +40,11 @@ app.use(cookieParser());
 
 
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
+
 app.get("/api/protected", authMiddleware, (req, res) => {
   res.json({ message: "You accessed protected route", user: (req as any).user });
 });

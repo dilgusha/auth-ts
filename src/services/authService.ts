@@ -184,8 +184,7 @@ export class AuthService {
 
     await query("UPDATE users SET password = $1 WHERE id = $2", [hashed, userId]);
 
-    await query("UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1", [userId]);
-
+    // await query("UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1", [userId]);
     return { message: "Password changed successfully" };
   }
 

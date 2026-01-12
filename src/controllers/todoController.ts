@@ -18,8 +18,9 @@ export async function getTodos(req: AuthRequest, res: Response) {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
+    const userId = req.params.userId || req.user!.id;
 
-    const todos = await todoService.getAll(req.user!.id, page, limit);
+    const todos = await todoService.getAll(userId, page, limit);
     res.json(todos);
 
   } catch (err: any) {
@@ -29,7 +30,8 @@ export async function getTodos(req: AuthRequest, res: Response) {
 
 export async function getTodo(req: any, res: Response) {
   try {
-    const todo = await todoService.getOne(req.user.id, req.params.id);
+
+    const todo = await todoService.getOne(req.params.id, req.params.id);
     res.json(todo);
   } catch (err: any) {
     res.status(404).json({ message: err.message });
@@ -45,6 +47,15 @@ export async function updateTodo(req: any, res: Response) {
     res.status(400).json({ message: err.message });
   }
 }
+// export async function updateMyTodo(req: any, res: Response) {
+//   try {
+//     const { title, completed } = req.body;
+//     const todo = await todoService.update(req.user.id, req.params.id, title, completed);
+//     res.json(todo);
+//   } catch (err: any) {
+//     res.status(400).json({ message: err.message });
+//   }
+// }
 
 export async function deleteTodo(req: any, res: Response) {
   try {

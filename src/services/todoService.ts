@@ -70,12 +70,13 @@ export class TodoService {
   }
 
   async update(userId: string, todoId: string, title: string, completed: boolean) {
+
     const result = await query(
       `UPDATE todos 
-       SET title = $1, completed = $2
-       WHERE id = $3 AND user_id = $4
-       RETURNING *`,
-      [title, completed, todoId, userId]
+     SET title = $1, completed = $2
+     WHERE id = $3
+     RETURNING *`,
+      [title, completed, todoId]
     );
 
     if (result.rows.length === 0) {
