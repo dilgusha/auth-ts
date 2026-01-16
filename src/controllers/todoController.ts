@@ -4,6 +4,29 @@ import { AuthRequest } from "../middleware/auth";
 
 const todoService = new TodoService();
 
+
+export async function updateTodoStatus(req: AuthRequest, res: Response) {
+  try {
+    const todoId = Number(req.params.id);
+    const userId = Number(req.user?.id);
+
+    console.log("Controller:", { todoId, userId });
+
+    if (!todoId) return res.status(400).json({ message: "Todo id is required" });
+
+    const todo = await todoService.updateStatus(todoId, userId);
+
+    res.json({
+      message: "Todo status toggled successfully",
+      todo
+    });
+  } catch (err: any) {
+    console.error("Error:", err.message);
+    res.status(400).json({ message: err.message });
+  }
+}
+
+
 export async function createTodo(req: any, res: Response) {
   try {
     const { title } = req.body;
@@ -65,3 +88,27 @@ export async function deleteTodo(req: any, res: Response) {
     res.status(400).json({ message: err.message });
   }
 }
+
+
+
+export async function searchTodos(req: AuthRequest, res: Response) {
+  try {
+    const { search } = req.query;
+
+    if (!search) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const todos = await todoService.search(
+      req.user.id,
+      search as string
+    );
+
+    res.json(todos);
+  } catch (err) {
+    res.status(500).json({ message: (err as Error).message });
+  }
+}
+

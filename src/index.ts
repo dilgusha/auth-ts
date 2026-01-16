@@ -49,7 +49,7 @@ app.get("/api/protected", authMiddleware, (req, res) => {
   res.json({ message: "You accessed protected route", user: (req as any).user });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });

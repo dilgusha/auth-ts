@@ -8,7 +8,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string,
     role: Role
-    
+
   };
 }
 
@@ -20,6 +20,9 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   try {
     const payload = verifyToken(token);
     if (payload.type !== "access") throw new Error("Invalid token");
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     req.user = payload;
     next();
   } catch {
